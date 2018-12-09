@@ -1,18 +1,11 @@
 let React = require('react');
 let ReactDOM = require('react-dom');
 require('./index.css');
-// state
-// lifecycle events
-// UI - necessary
-class App extends React.Component {
-  render() {
-    return (
-      <div>Hello Vorld!</div>
-    );
-  }
-}
+var App = require('./components/App')
 
 ReactDOM.render(
   <App />,
-  document.getElementById('app'),
-);
+  document.getElementById('app')
+)
+
+//so the only responsibility of index.js is to render App
