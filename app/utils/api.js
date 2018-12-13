@@ -1,31 +1,27 @@
-var axios = require('axios');
+const id = "YOUR_CLIENT_ID";
+const sec = "YOUR_SECRET_ID";
+const params = `?client_id=${id}&client_secret=${sec}`; //optional
 
-var id = "YOUR_CLIENT_ID";
-var sec = "YOUR_SECRET_ID";
-var params = "?client_id=" + id + "&client_secret=" + sec; //optional
-
-function getProfile(username) {
-  return axios.get('http://api.github.com/users/' + username)
-    .then(function (user) {
-      return user.data;
-    });
+async function getProfile(username) {
+  const response = await fetch(`https://api.github.com/users/${username}`);
+  return response.json();
 }
 
-function getRepos(username) {
-  return axios.get('http://api.github.com/users/' + username + '/repos' + '?per_page=100');
+async function getRepos(username) {
+  const response = await fetch(`https://api.github.com/users/${username}/repos?per_page=100`);
+  return response.json();
 }
 
 function getStarCount(repos) {
-  return repos.data.reduce(function (count, repo) {
-    return count + repo.stargazers_count;
-  }, 0);
+  return repos.reduce((count, {
+    stargazers_count
+  }) => count + stargazers_count, 0);
 }
 
-function calculateScore(profile, repos) {
-  var followers = profile.followers;
-  var totalStars = getStarCount(repos);
-
-  return followers * 3 + totalStars;
+function calculateScore({
+  followers
+}, repos) {
+  return followers * 3 + getStarCount(repos);
 }
 
 function handleError(error) {
@@ -33,44 +29,34 @@ function handleError(error) {
   return null;
 }
 
-function getUserData(player) {
+async function getUserData(player) {
   //what .all does is when all of the promises in the array are resloved, 
   //.then will be called
-  return axios.all([
-    getProfile(player),
-    getRepos(player),
-  ]).then(function (data) {
-    var profile = data[0];
-    var repos = data[1];
-    return {
-      profile: profile,
-      score: calculateScore(profile, repos),
-    }
-  });
+  const [profile, repos] = await Promise.all([getProfile(player), getRepos(player)]);
+  return {
+    profile,
+    score: calculateScore(profile, repos),
+  }
 }
 
 function sortPlayers(players) {
-  return players.sort(function (a, b) {
-    return b.score - a.score;
-  });
+  return players.sort((a, b) => b.score - a.score);
 }
-
-module.exports = {
-  //anytime we want to interact with the external api inside of our project,
-  //we are going to have a bunch of methods here we can call in order to do that
-  battle: function (players) {
-    return axios.all(players.map(getUserData))
-      .then(sortPlayers)
-      .catch(handleError);
-  },
-  fetchPopularRepos: function (language) {
-    var encodedURI = window
-      .encodeURI('https://api.github.com/search/repositories?q=stars:>1+language:' +
-        language + '&sort=stars&order=desc&type=Repositories');
-
-    return axios.get(encodedURI)
-      .then(function (response) {
-        return response.data.items;
-      })
+//anytime we want to interact with the external api inside of our project,
+//we are going to have a bunch of methods here we can call in order to do that
+export async function battle(players) {
+  try {
+    const result = await Promise.all(players.map(getUserData))
+    return sortPlayers(result);
+  } catch (error) {
+    handleError(error);
   }
+}
+export async function fetchPopularRepos(language) {
+  const encodedURI = window
+    .encodeURI(`https://api.github.com/search/repositories?q=stars:>1+language:${language}&sort=stars&order=desc&type=Repositories`);
+  const response = await fetch(encodedURI)
+    .catch(handleError);
+  const repos = await response.json();
+  return repos.items;
 }
